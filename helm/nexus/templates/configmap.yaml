@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nexus.fullname" . }}-config
+  labels:
+    {{- include "nexus.labels" . | nindent 4 }}
+data:
+  nexus.properties: |
+    # Nexus Repository Manager configuration
+    nexus.scripts.allowCreation=true
+    nexus.security.randompassword=false
+
+    # Database configuration (Aurora PostgreSQL)
+    nexus.datastore.enabled=true
+    nexus.datastore.nexus.type=jdbc
+    nexus.datastore.nexus.jdbcUrl=jdbc:postgresql://${NEXUS_DB_HOST}:${NEXUS_DB_PORT}/${NEXUS_DB_NAME}
+    nexus.datastore.nexus.username=${NEXUS_DB_USER}
+    nexus.datastore.nexus.password=${NEXUS_DB_PASSWORD}
+
+    # Optional: Additional database settings
+    nexus.datastore.nexus.maximumPoolSize=20
+    nexus.datastore.nexus.minimumIdle=5
+    nexus.datastore.nexus.connectionTimeout=30000
+    nexus.datastore.nexus.idleTimeout=600000
+    nexus.datastore.nexus.maxLifetime=1800000
+
+    # Performance tuning
+    nexus.cleanup.retainDays=30
+    nexus.search.event.handler.flushOnCount=500

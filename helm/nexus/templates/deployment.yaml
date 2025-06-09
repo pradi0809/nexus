@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nexus.fullname" . }}
+  labels:
+    {{- include "nexus.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "nexus.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "nexus.selectorLabels" . | nindent 8 }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "nexus.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.nexus.securityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.nexus.image.repository }}:{{ .Values.nexus.image.tag }}"
+          imagePullPolicy: {{ .Values.nexus.image.pullPolicy }}
+          env:
+            - name: NEXUS_SECURITY_RANDOMPASSWORD
+              value: "false"
+            - name: NEXUS_SECURITY_INITIAL_PASSWORD
+              value: "{{ .Values.nexus.adminPassword }}"
+            - name: INSTALL4J_ADD_VM_PARAMS
+              value: "{{ .Values.nexus.javaOpts }}"
+            - name: NEXUS_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.aurora.existingSecret }}
+                  key: host
+            - name: NEXUS_DB_PORT
+              value: "{{ .Values.database.aurora.port }}"
+            - name: NEXUS_DB_NAME
+              value: "{{ .Values.database.aurora.dbName }}"
+            - name: NEXUS_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.aurora.existingSecret }}
+                  key: username
+            - name: NEXUS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.aurora.existingSecret }}
+                  key: password
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+            - name: docker
+              containerPort: 8082
+              protocol: TCP
+            - name: docker-alt
+              containerPort: 8083
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /service/rest/v1/status
+              port: http
+            initialDelaySeconds: 180
+            timeoutSeconds: 10
+            periodSeconds: 60
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /service/rest/v1/status
+              port: http
+            initialDelaySeconds: 180
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.nexus.resources | nindent 12 }}
+          volumeMounts:
+            - name: nexus-data
+              mountPath: /nexus-data
+            - name: nexus-config
+              mountPath: /nexus-data/etc/nexus.properties
+              subPath: nexus.properties
+      volumes:
+        - name: nexus-data
+          {{- if .Values.nexus.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "nexus.fullname" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: nexus-config
+          configMap:
+            name: {{ include "nexus.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
