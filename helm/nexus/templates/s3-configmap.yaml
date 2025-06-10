@@ -1,0 +1,17 @@
+{{- if .Values.nexus.s3.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nexus.fullname" . }}-s3-config
+  labels:
+    {{- include "nexus.labels" . | nindent 4 }}
+data:
+  nexus-s3-config.properties: |
+    # S3 Blobstore Configuration
+    nexus.blobstore.s3.bucket={{ .Values.nexus.s3.bucket }}
+    nexus.blobstore.s3.region={{ .Values.nexus.s3.region }}
+    nexus.blobstore.s3.prefix={{ .Values.nexus.s3.path }}
+    nexus.blobstore.s3.endpoint=s3.{{ .Values.nexus.s3.region }}.amazonaws.com
+    # Use IAM role for authentication
+    nexus.blobstore.s3.auth.type=iam
+{{- end }}

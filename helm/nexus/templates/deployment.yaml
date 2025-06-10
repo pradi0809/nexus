@@ -33,7 +33,7 @@ spec:
             - name: NEXUS_SECURITY_INITIAL_PASSWORD
               value: "{{ .Values.nexus.adminPassword }}"
             - name: INSTALL4J_ADD_VM_PARAMS
-              value: "{{ .Values.nexus.javaOpts }}"
+              value: "{{ .Values.nexus.javaOpts }} -Dnexus.blobstore.type=S3"
             - name: NEXUS_DB_HOST
               valueFrom:
                 secretKeyRef:
@@ -81,15 +81,29 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml .Values.nexus.resources | nindent 12 }}
+          env:
+            {{- if .Values.nexus.s3.enabled }}
+            - name: AWS_REGION
+              value: {{ .Values.nexus.s3.region | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.nexus.s3.bucket | quote }}
+            - name: S3_PATH
+              value: {{ .Values.nexus.s3.path | quote }}
+            {{- end }}
           volumeMounts:
             - name: nexus-data
               mountPath: /nexus-data
             - name: nexus-config
               mountPath: /nexus-data/etc/nexus.properties
               subPath: nexus.properties
+            {{- if .Values.nexus.s3.enabled }}
+            - name: s3-config
+              mountPath: /opt/sonatype/nexus/etc/fabric/nexus-s3-config.properties
+              subPath: nexus-s3-config.properties
+            {{- end }}
       volumes:
         - name: nexus-data
-          {{- if .Values.nexus.persistence.enabled }}
+          {{- if and .Values.nexus.persistence.enabled (not .Values.nexus.s3.enabled) }}
           persistentVolumeClaim:
             claimName: {{ include "nexus.fullname" . }}
           {{- else }}
@@ -98,6 +112,11 @@ spec:
         - name: nexus-config
           configMap:
             name: {{ include "nexus.fullname" . }}-config
+        {{- if .Values.nexus.s3.enabled }}
+        - name: s3-config
+          configMap:
+            name: {{ include "nexus.fullname" . }}-s3-config
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

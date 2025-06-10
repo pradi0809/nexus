@@ -40,14 +40,22 @@ nexus:
   adminPassword: "passw0rd"
   
   # JVM memory settings
-  javaOpts: "-Xms2g -Xmx2g -XX:MaxDirectMemorySize=3g -Djava.util.prefs.userRoot=/nexus-data/javaprefs"
+  javaOpts: "-Xms2g -Xmx2g -XX:MaxDirectMemorySize=3g -Djava.util.prefs.userRoot=/nexus-data/javaprefs -Dnexus.blobstore.s3.config=/opt/sonatype/nexus/etc/fabric/nexus-s3-config.properties"
   
   # Persistence configuration
   persistence:
-    enabled: true
+    enabled: false  # Disabled as we're using S3 instead
     storageClass: "gp2"
     accessMode: ReadWriteOnce
     size: 100Gi
+    
+  # S3 storage configuration
+  s3:
+    enabled: true
+    bucket: "nexus-storage"
+    region: "us-east-1"
+    path: "nexus-data"
+    # IAM role will be used via service account annotations
 
 # Aurora PostgreSQL configuration
 database:
@@ -130,5 +138,5 @@ affinity: {}
 serviceAccount:
   create: true
   annotations:
-    eks.amazonaws.com/role-arn: ""  # Add IAM role ARN for service account if needed
+    eks.amazonaws.com/role-arn: ""  # Add IAM role ARN for service account with S3 permissions
   name: "nexus"
